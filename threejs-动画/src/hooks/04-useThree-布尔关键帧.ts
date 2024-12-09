@@ -4,15 +4,13 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 // // 导入draco解码器
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import GUI from 'three/examples/jsm/libs/lil-gui.module.min.js'
 export function useThree() {
   //创建一个场景
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0xffffff)
   //创建一个相机
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000)
-  // camera.lookAt(15, 15, 15)
-  camera.position.set(10, 10, 10)
+  camera.position.z = 5
   //创建一个渲染器
   const renderer = new THREE.WebGLRenderer()
   renderer.setSize(window.innerWidth, window.innerHeight)
@@ -35,11 +33,12 @@ export function useThree() {
 
   const clock = new THREE.Clock()
   let mixer: any = null
-  let currentStatus: any
+  let mixer2: any = null
   const animate = () => {
     const delta = clock.getDelta()
 
     if (mixer) mixer.update(delta)
+    if (mixer2) mixer2.update(delta)
     controls.update()
     requestAnimationFrame(animate)
     renderer.render(scene, camera)
@@ -58,6 +57,41 @@ export function useThree() {
     // 设置环境贴图
     scene.environment = envMap
   })
+  //创建立方体
+  const geometry = new THREE.BoxGeometry(1, 1, 1)
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xff33ff,
+  })
+  const cube = new THREE.Mesh(geometry, material)
+  cube.name = 'cube'
+  scene.add(cube)
+  //创建位移关键帧
+  const positionKF = new THREE.VectorKeyframeTrack(
+    'cube.position',
+    [0, 1, 2, 3, 4],
+    [0, 0, 0, 0, 2, 0, 0, 4, 0, 0, 2, 0, 0, 0, 0]
+  )
+
+  //设置三个旋转角度
+  const quaternion1 = new THREE.Quaternion()
+  quaternion1.setFromEuler(new THREE.Euler(0, 0, 0))
+  const quaternion2 = new THREE.Quaternion()
+  quaternion2.setFromEuler(new THREE.Euler(0, 0, Math.PI))
+  const quaternion3 = new THREE.Quaternion()
+  quaternion3.setFromEuler(new THREE.Euler(0, 0, 0))
+  const allQuaternion = quaternion1.toArray().concat(quaternion2.toArray(), quaternion3.toArray())
+  console.log(allQuaternion)
+  //创建旋转关键帧
+  const quaternionKF = new THREE.QuaternionKeyframeTrack('cube.quaternion', [0, 2, 4], allQuaternion)
+  //创建布尔关键帧
+  const boolKF = new THREE.BooleanKeyframeTrack('cube.visible', [0, 1, 2, 3, 4], [true, false, true, false, true])
+
+  mixer = new THREE.AnimationMixer(cube)
+  // 创建动画剪辑
+  const clip = new THREE.AnimationClip('move', 4, [positionKF, quaternionKF, boolKF])
+  // 创建动画播放
+  const action = mixer.clipAction(clip)
+  action.play()
 
   // 实例化加载器gltf
   const gltfLoader = new GLTFLoader()
@@ -66,68 +100,16 @@ export function useThree() {
   // 设置draco路径
   dracoLoader.setDecoderPath('./draco/')
   gltfLoader.setDRACOLoader(dracoLoader)
-  gltfLoader.load('./model/hilda_regular_00.glb', gltf => {
+  gltfLoader.load('./model/moon.glb', gltf => {
     scene.add(gltf.scene)
-    mixer = new THREE.AnimationMixer(gltf.scene)
-    const walkAnimation = mixer.clipAction(gltf.animations[37])
-    const runAnimation = mixer.clipAction(gltf.animations[27])
-    const idlAnimation = mixer.clipAction(gltf.animations[6])
-    const posAnimation = mixer.clipAction(gltf.animations[23])
-    currentStatus = idlAnimation
-    const eventObj = {
-      stopAll: () => {
-        mixer.stopAllAction()
-      },
-      play: () => {
-        console.log(mixer)
+    const mesh = gltf.scene
+    mesh.name = 'moon'
+    mixer2 = new THREE.AnimationMixer(mesh)
+    const boolKF = new THREE.BooleanKeyframeTrack('moon.visible', [0, 1, 2, 3, 4], [true, false, true, false, true])
 
-        mixer._actions.forEach((action: any) => {
-          action.play()
-        })
-      },
-      walk: () => {
-        walkAnimation.enabled = true
-        walkAnimation.setEffectiveTimeScale(1)
-        walkAnimation.setEffectiveWeight(1)
-        walkAnimation.play()
-        currentStatus.crossFadeTo(walkAnimation, 0.5, true)
-        currentStatus = walkAnimation
-      },
-      run: () => {
-        runAnimation.enabled = true
-        runAnimation.setEffectiveTimeScale(1)
-        runAnimation.setEffectiveWeight(1)
-        runAnimation.play()
-        currentStatus.crossFadeTo(runAnimation, 0.5, true)
-
-        currentStatus = runAnimation
-      },
-      pos: () => {
-        posAnimation.enabled = true
-
-        posAnimation.setEffectiveTimeScale(1)
-        posAnimation.setEffectiveWeight(1)
-        posAnimation.play()
-        currentStatus.crossFadeTo(posAnimation, 0.5, true)
-
-        currentStatus = posAnimation
-      },
-      idle: () => {
-        idlAnimation.enabled = true
-        idlAnimation.setEffectiveTimeScale(1)
-        idlAnimation.setEffectiveWeight(1)
-        idlAnimation.play()
-
-        currentStatus.crossFadeTo(idlAnimation, 0.5, true)
-        currentStatus = idlAnimation
-      },
-    }
-    const gui = new GUI()
-    gui.add(eventObj, 'stopAll')
-    gui.add(eventObj, 'play')
-    gui.add(eventObj, 'walk')
-    gui.add(eventObj, 'run')
-    gui.add(eventObj, 'pos')
-    gui.add(eventObj, 'idle')
+    //创建动画剪辑
+    const clip = new THREE.AnimationClip('bool', 4, [boolKF])
+    const action = mixer2.clipAction(clip)
+    action.play()
   })
 }
