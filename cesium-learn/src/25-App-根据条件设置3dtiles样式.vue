@@ -23,48 +23,26 @@ Cesium.Camera.DEFAULT_VIEW_RECTANGLE = Cesium.Rectangle.fromDegrees(
 
 onMounted(async () => {
   const viewer = new Cesium.Viewer('cesiumContainer', {
-    // infoBox: false,
-    shouldAnimate: true,
+    infoBox: false,
+    // shouldAnimate: true,
     // 设置地形
   })
   //隐藏logo
   viewer.cesiumWidget.creditContainer.style.display = 'none'
-  //设置沙箱允许使用js
-  // 设置沙箱允许使用js
-  var iframe = document.getElementsByClassName('cesium-infoBox-iframe')[0]
-  iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-popups allow-forms')
-  iframe.setAttribute('src', '')
   const tiles3d = await Cesium.createOsmBuildingsAsync()
   viewer.scene.primitives.add(tiles3d)
 
-  const position = Cesium.Cartesian3.fromDegrees(113.3191, 23.109, 10)
+  const position = Cesium.Cartesian3.fromDegrees(113.3191, 23.109, 1000)
   viewer.camera.flyTo({ destination: position, duration: 2 })
-  // viewer.entities.add({
-  //   position: position,
-  //   label: {
-  //     text: '广州塔',
-  //     font: '20px sans-serif',
-  //     style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-  //     fillColor: Cesium.Color.RED,
-  //     outlineWidth: 2,
-  //     verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-  //     pixelOffset: new Cesium.Cartesian2(0, -9),
-  //   },
-  //   billboard: {
-  //     image: './texture/gzt.png',
-  //     scale: 0.5,
-  //     verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-  //   },
-  // })
+
   tiles3d.style = new Cesium.Cesium3DTileStyle({
-    defines: {
-      distance: "distance(vec2(${feature['cesium#longitude']},${feature['cesium#latitude']}),vec2(113.3191,23.109))",
-    },
     color: {
       conditions: [
-        ['${distance}<0.01', 'color("rgba(255,255,0,0.0)")'],
-        ['${distance}<0.02', 'color("rgba(255,255,0,0.5)")'],
-        ['${distance}<0.03', 'color("rgba(255,255,0,0.2)")'],
+        ['${feature["building"]}==="apartments"', 'color("rgba(255,255,0,0.5)", 0.5)'],
+        ['${feature["building"]}==="commercial"', 'color("rgba(255,0,0,0.5)", 0.5)'],
+        ['${feature["cesium#estimatedHeight"]}>300', 'color("rgba(200,200,255,0.7)")'],
+        ['${feature["cesium#estimatedHeight"]}>100', 'color("rgba(100,100,255,0.7)")'],
+        ['${feature["cesium#estimatedHeight"]}>50', 'color("rgba(50,50,150,0.7)")'],
 
         ['true', 'color("white")'],
       ],
