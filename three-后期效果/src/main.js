@@ -1,243 +1,130 @@
 import * as THREE from 'three'
-import './style.css'
+import gsap from 'gsap'
 
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-//后期效果合成器
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
-//three框架本身自带效果
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
-import { DotScreenPass } from 'three/examples/jsm/postprocessing/DotScreenPass'
-import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass'
-import { SSAARenderPass } from 'three/examples/jsm/postprocessing/SSAARenderPass'
-import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass'
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
-import gui from 'dat.gui'
+import { GLTFLoader, RGBELoader } from 'three/examples/jsm/Addons.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
+
+const gltfLoader = new GLTFLoader()
+const dracoLoader = new DRACOLoader()
+dracoLoader.setDecoderPath('./draco/gltf/')
+dracoLoader.setDecoderConfig({ type: 'js' })
+
+// dracoLoader.setDecoderConfig({ type: 'js' })
+dracoLoader.preload()
+gltfLoader.setDRACOLoader(dracoLoader)
+
 const scene = new THREE.Scene()
-
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-camera.position.set(0, 0, 3)
-scene.add(camera)
-camera.updateProjectionMatrix()
-
-//轨道控制器
-
+camera.position.set(2, 22, 25)
 const renderer = new THREE.WebGLRenderer()
 renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
+const controls = new OrbitControls(camera, renderer.domElement)
 
+//坐标辅助线
 const axesHelper = new THREE.AxesHelper(5)
 scene.add(axesHelper)
-
-const controls = new OrbitControls(camera, renderer.domElement)
 controls.enableDamping = true
-
-//纹理加载器
-const textureLoader = new THREE.TextureLoader()
-const normalTexture = textureLoader.load('./textures/interfaceNormalMap.png')
-
-// 添加环境纹理
-const cubeTextureLoader = new THREE.CubeTextureLoader()
-const envMapTexture = cubeTextureLoader.load([
-  'textures/environmentMaps/0/px.jpg',
-  'textures/environmentMaps/0/nx.jpg',
-  'textures/environmentMaps/0/py.jpg',
-  'textures/environmentMaps/0/ny.jpg',
-  'textures/environmentMaps/0/pz.jpg',
-  'textures/environmentMaps/0/nz.jpg',
-])
-scene.background = envMapTexture
-scene.environment = envMapTexture
-
-const directionLight = new THREE.DirectionalLight('#ffffff', 1)
-directionLight.castShadow = true
-directionLight.position.set(0, 0, 200)
-scene.add(directionLight)
-//加载模型
-const gltfLoader = new GLTFLoader()
-gltfLoader.load('./models/DamagedHelmet/glTF/DamagedHelmet.gltf', gltf => {
-  console.log(gltf)
-  // scene.add(gltf.scene)
-  const mesh = gltf.scene.children[0]
-  mesh.material.normalMap = normalTexture
-  scene.add(mesh)
+// 添加hdr环境纹理
+const loader = new RGBELoader()
+loader.load('./textures/038.hdr', function (texture) {
+  texture.mapping = THREE.EquirectangularReflectionMapping
+  scene.background = texture
+  scene.environment = texture
 })
-
-//合成效果
-const effectComposer = new EffectComposer(renderer)
-effectComposer.setSize(window.innerWidth, window.innerHeight)
-// effectComposer.setPixelRatio(window.devicePixelRatio)
-//添加渲染通道
-const renderPass = new RenderPass(scene, camera)
-effectComposer.addPass(renderPass)
-//添加点效果
-const dotScreenPass = new DotScreenPass()
-dotScreenPass.enabled = false
-effectComposer.addPass(dotScreenPass)
-
-//抗锯齿
-const smaaPass = new SMAAPass()
-effectComposer.addPass(smaaPass)
-
-//发光效果
-const unrealBloomPass = new UnrealBloomPass()
-// unrealBloomPass.enabled = false
-renderer.toneMapping = THREE.LinearToneMapping
-renderer.toneMappingExposure = 1
-// unrealBloomPass.exposure = 1
-unrealBloomPass.strength = 1
-unrealBloomPass.radius = 0
-unrealBloomPass.threshold = 1
-
-//
-// const glitchPass = new GlitchPass()
-// effectComposer.addPass(glitchPass)
-// glitchPass.goWild = true
-// glitchPass.enabled = false
-// glitchPass.randX = 0.01
-// glitchPass.curF = 0.01
-
-const dat = new gui.GUI()
-dat
-  .add(unrealBloomPass, 'enabled')
-
-  .onChange(value => {
-    unrealBloomPass.enabled = value
+init()
+const params = { value: 0, value1: 0 }
+let mixer
+let stem, petal, stem1, petal1, stem2, petal2, stem3, petal3
+function init() {
+  gltfLoader.load('/model/f4.glb', function (gltf1) {
+    console.log(gltf1)
+    stem = gltf1.scene.children[0]
+    petal = gltf1.scene.children[1]
+    scene.add(gltf1.scene)
+    gltf1.scene.rotation.x = -Math.PI
+    gltf1.scene.traverse(function (child) {
+      if (child.material && child.material.name === 'Water') {
+        child.material = new THREE.MeshBasicMaterial({
+          color: 0x0000ff,
+          depthWrite: false,
+          transparent: true,
+          depthTest: false,
+          opacity: 0.5,
+        })
+      }
+      if (child.material && child.material.name === 'Stem') {
+        stem = child
+      }
+      if (child.material && child.material.name === 'Petal') {
+        petal = child
+        gltfLoader.load('./model/f2.glb', gltf2 => {
+          gltf2.scene.traverse(item => {
+            if (item.material && item.material.name === 'Stem') {
+              stem1 = item
+              stem.geometry.morphAttributes.position = [stem1.geometry.attributes.position]
+              stem.updateMorphTargets()
+              stem.morphTargetInfluences[0] = 0
+            }
+            if (item.material && item.material.name === 'Petal') {
+              petal1 = item
+              petal.geometry.morphAttributes.position = [petal1.geometry.attributes.position]
+              petal.updateMorphTargets()
+              petal.morphTargetInfluences[0] = 0
+            }
+          })
+          gltfLoader.load('./model/f1.glb', gltf3 => {
+            gltf3.scene.traverse(item => {
+              if (item.material && item.material.name === 'Stem') {
+                stem2 = item
+                stem.geometry.morphAttributes.position.push(stem2.geometry.attributes.position)
+                stem.updateMorphTargets()
+                stem.morphTargetInfluences[1] = 0
+                console.log(stem)
+              }
+              if (item.material && item.material.name === 'Petal') {
+                petal2 = item
+                petal.geometry.morphAttributes.position.push(petal2.geometry.attributes.position)
+                petal.updateMorphTargets()
+                petal.morphTargetInfluences[1] = 0
+              }
+            })
+            gsap.to(params, {
+              value: 1,
+              duration: 5,
+              onUpdate: () => {
+                stem.morphTargetInfluences[0] = params.value
+                petal.morphTargetInfluences[0] = params.value
+              },
+              onComplete: () => {
+                gsap.to(params, {
+                  value1: 1,
+                  duration: 5,
+                  onUpdate: () => {
+                    stem.morphTargetInfluences[1] = params.value1
+                    petal.morphTargetInfluences[1] = params.value1
+                  },
+                })
+              },
+            })
+          })
+        })
+      }
+    })
   })
-
-// dat
-//   .add(unrealBloomPass, 'exposure')
-//   .min(0)
-//   .max(1)
-//   .onChange(value => {
-//     unrealBloomPass.exposure = value
-//   })
-dat
-  .add(unrealBloomPass, 'strength')
-
-  .min(0)
-  .max(1)
-  .onChange(value => {
-    unrealBloomPass.strength = value
-  })
-dat
-  .add(unrealBloomPass, 'radius')
-
-  .min(0)
-  .max(1)
-  .onChange(value => {
-    unrealBloomPass.radius = value
-  })
-
-dat
-  .add(unrealBloomPass, 'threshold')
-
-  .min(0)
-  .max(1)
-  .onChange(value => {
-    unrealBloomPass.threshold = value
-  })
-dat
-  .add(renderer, 'toneMappingExposure')
-
-  .min(0)
-  .max(1)
-  .onChange(value => {
-    renderer.toneMappingExposure = value
-  })
-
-const colorParams = {
-  r: 0,
-  g: 0,
-  b: 0,
-}
-//着色器渲染通道
-const shaderPass = new ShaderPass({
-  uniforms: {
-    tDiffuse: {
-      value: null,
-    },
-    uColor: {
-      value: new THREE.Color(colorParams.r, colorParams.g, colorParams.b),
-    },
-  },
-  vertexShader: `
-  varying vec2 vUv;
-  void main(){
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-  `,
-  fragmentShader: `
-
-  varying vec2 vUv;
-  uniform sampler2D tDiffuse;
-  uniform vec3 uColor;
-    void main() {
-    vec4 color = texture2D(tDiffuse, vUv);
-    color.rgb+=uColor;
-  
-    gl_FragColor = color ;
-    }
-  `,
-})
-effectComposer.addPass(shaderPass)
-
-dat.add(colorParams, 'r', -1, 1).onChange(value => (shaderPass.uniforms.uColor.value.r = value))
-dat.add(colorParams, 'g', -1, 1).onChange(value => (shaderPass.uniforms.uColor.value.g = value))
-dat.add(colorParams, 'b', -1, 1).onChange(value => (shaderPass.uniforms.uColor.value.b = value))
-
-const techPass = new ShaderPass({
-  uniforms: {
-    tDiffuse: {
-      value: null,
-    },
-    uNormalMap: {
-      value: null,
-    },
-    uTime: {
-      value: 0,
-    },
-  },
-  vertexShader: `
-  varying vec2 vUv;
-  void main(){
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-  `,
-  fragmentShader: `
-  varying vec2 vUv;
-  uniform sampler2D tDiffuse;
-  uniform vec3 uColor;
-  uniform sampler2D uNormalMap;
-  uniform float uTime;
-    void main() {
-    vec2 newUv =vUv;
-    newUv+=sin(newUv.x*2.0+uTime)*0.01;
-
-    vec4 color = texture2D(tDiffuse, newUv);
-    vec4 normalColor = texture2D(uNormalMap,vUv);
-    // vec4 color = texture2D(tDiffuse, normalColor);
-    //设置光线角度
-    vec3 lightDirection = normalize(vec3(-5,5,0));
-    float lightness = clamp(dot(normalColor.rgb,lightDirection),0.0,1.0);
-    color.rgb+=lightness;
-    gl_FragColor = color ;
-    }
-  `,
-})
-techPass.material.uniforms.uNormalMap.value = normalTexture
-effectComposer.addPass(techPass)
-effectComposer.addPass(unrealBloomPass)
-
-const clock = new THREE.Clock()
-function animate() {
-  const elapsedTime = clock.getElapsedTime()
-  techPass.material.uniforms.uTime.value = elapsedTime
-
-  effectComposer.render()
-  requestAnimationFrame(animate)
 }
 animate()
+
+function animate() {
+  requestAnimationFrame(animate)
+  controls.update()
+  renderer.render(scene, camera)
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.setPixelRatio(window.devicePixelRatio)
+})
